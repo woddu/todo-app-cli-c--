@@ -162,11 +162,13 @@ bool addTodo(vector<TodoItem>& todos, string& newTitle, string& newDescription) 
     return saveTodosToFile(todos);
 }
 
-bool removeTodo(vector<TodoItem>& todos, int& id) {
+bool removeTodo(vector<TodoItem>& todos, int& id, const bool& fromToken = false) {
+    if (!fromToken) {
     cout << "Enter the ID of the todo to remove: ";
-    while (!(cin >> id)) {
-        cin.clear(); // Clear the error flag
-        cin.ignore(10000, '\n'); // Discard invalid input
+        while (!(cin >> id)) {
+            cin.clear(); // Clear the error flag
+            cin.ignore(10000, '\n'); // Discard invalid input
+        }
     }
     auto it = std::remove_if(todos.begin(), todos.end(), [id](const TodoItem& todo) {
         return todo.id == id;
@@ -178,13 +180,32 @@ bool removeTodo(vector<TodoItem>& todos, int& id) {
     return false;
 }
 
-bool editTodo(vector<TodoItem>& todos, int& id, string& newTitle, string& newDescription) {
-    cout << "Enter the ID of the todo to edit: ";
-    while (!(cin >> id)) {
-        cin.clear(); // Clear the error flag
-        cin.ignore(10000, '\n'); // Discard invalid input
+bool editTodo(vector<TodoItem>& todos, int& id, string& newTitle, string& newDescription,  const bool& fromToken = false) {
+    if (!fromToken) {
+        cout << "Enter the ID of the todo to edit: ";
+        while (!(cin >> id)) {
+            cin.clear(); // Clear the error flag
+            cin.ignore(10000, '\n'); // Discard invalid input
+        }
     }
-    cin.ignore();  // Clear the newline character from the input buffer
+    
+    TodoItem* todoToEdit = nullptr;
+    
+    bool exists = false;
+
+    for (auto& todo : todos) {
+        if (todo.id == id) {
+            todoToEdit = &todo;
+            exists = true;
+            break;
+        }
+    }
+
+    if (!exists || todoToEdit == nullptr) {
+        std::cerr << "Todo with ID " << id << " does not exist.\n";
+        return false;
+    }
+       
     cout << "Enter new Title: ";
     while (newTitle.empty()) {
         getline(cin, newTitle);
@@ -195,21 +216,20 @@ bool editTodo(vector<TodoItem>& todos, int& id, string& newTitle, string& newDes
         getline(cin, newDescription);
         trim(newDescription);
     }
-    for (auto& todo : todos) {
-        if (todo.id == id) {
-            todo.title = newTitle;
-            todo.description = newDescription;
-            return saveTodosToFile(todos);
-        }
-    }
-    return false;
+    
+    todoToEdit->title = newTitle;
+    todoToEdit->description = newDescription;    
+
+    return saveTodosToFile(todos);
 }
 
-bool completeTodo(vector<TodoItem>& todos, int& id) {
-    cout << "Enter the ID of the todo to complete: ";
-    while (!(cin >> id)) {
-        cin.clear(); // Clear the error flag
-        cin.ignore(10000, '\n'); // Discard invalid input
+bool completeTodo(vector<TodoItem>& todos, int& id, const bool& fromToken = false) {
+    if (!fromToken){
+        cout << "Enter the ID of the todo to complete: ";
+        while (!(cin >> id)) {
+            cin.clear(); // Clear the error flag
+            cin.ignore(10000, '\n'); // Discard invalid input
+        }
     }
     for (auto& todo : todos) {
         if (todo.id == id) {
@@ -243,28 +263,57 @@ int main(){
                 if (!addTodo(todos, newTitle, newDescription)) {                
                     cout << "Failed to save todos to file.\n";
                     todos.pop_back();
-                }
-                newTitle.clear();
-                newDescription.clear();
+                }                
                 printTodos(todos);
                 break;
-            case Command::Edit:                
-                if (!editTodo(todos, selectedTodoId, newTitle, newDescription)) {
+            case Command::Edit: 
+                if (tokens.size() > 1) {
+                    try {
+                        selectedTodoId = stoi(tokens[1]);
+                    } catch (const std::invalid_argument& e) {
+                        std::cerr << "Invalid ID.\n";
+                        break;
+                    } catch (const std::out_of_range& e) {
+                        std::cerr << "ID is out of range.\n";
+                        break;
+                    }
+                }
+                if (!editTodo(todos, selectedTodoId, newTitle, newDescription, tokens.size() > 1)) {
                     cout << "Failed to edit todo.\n";
-                }
-                newTitle.clear();
-                newDescription.clear();
+                }                
                 printTodos(todos);
                 break;
-            case Command::Remove:                
-                if (removeTodo(todos, selectedTodoId)) {
+            case Command::Remove:
+                if (tokens.size() > 1) {
+                    try {
+                        selectedTodoId = stoi(tokens[1]);
+                    } catch (const std::invalid_argument& e) {
+                        std::cerr << "Invalid ID.\n";
+                        break;
+                    } catch (const std::out_of_range& e) {
+                        std::cerr << "ID is out of range.\n";
+                        break;
+                    }
+                }
+                if (removeTodo(todos, selectedTodoId, tokens.size() > 1)) {
                     cout << "Todo removed successfully.\n";
                 } else {
                     cout << "Failed to remove todo.\n";
                 }
                 break;
-            case Command::Complete:                
-                if (completeTodo(todos, selectedTodoId)) {
+            case Command::Complete: 
+                if (tokens.size() > 1) {
+                    try {
+                        selectedTodoId = stoi(tokens[1]);
+                    } catch (const std::invalid_argument& e) {
+                        std::cerr << "Invalid ID.\n";
+                        break;
+                    } catch (const std::out_of_range& e) {
+                        std::cerr << "ID is out of range.\n";
+                        break;
+                    }
+                }
+                if (completeTodo(todos, selectedTodoId, tokens.size() > 1)) {
                     cout << "Todo marked as complete.\n";
                 } else {
                     cout << "Failed to mark todo as complete.\n";
@@ -277,5 +326,9 @@ int main(){
                 cout << "Unknown command\n";
                 break;
         }
+        
+        newTitle.clear();
+        newDescription.clear();
+        cin.clear();
     }
 }
